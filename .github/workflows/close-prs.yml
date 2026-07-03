@@ -1,0 +1,46 @@
+name: Auto-close pull requests
+
+# FoldNotes MCP is source-available and install-only; pull requests are not accepted.
+# GitHub has no switch to disable PRs, so this politely comments and closes any that open.
+# Uses pull_request_target so it runs with a write-capable token even for fork PRs.
+# It never checks out or runs the PR's code, so this is safe.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = [
+              "Thanks for your interest! 🙏",
+              "",
+              "**FoldNotes MCP is source-available and install-only — we don't accept pull requests**,",
+              "so this is being closed automatically. See [CONTRIBUTING](https://github.com/Foldsoft/foldnotes-mcp/blob/main/CONTRIBUTING.md).",
+              "",
+              "- Questions & tips → **[Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions)**",
+              "- Bugs & security → email the address at [foldnotes.io](https://foldnotes.io)",
+              "",
+              "You're welcome to fork and modify under the MIT licence for your own use.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body,
+            });
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: "closed",
+            });
