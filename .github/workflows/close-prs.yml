@@ -27,8 +27,8 @@ jobs:
               "**FoldNotes MCP is source-available and install-only — we don't accept pull requests**,",
               "so this is being closed automatically. See [CONTRIBUTING](https://github.com/Foldsoft/foldnotes-mcp/blob/main/CONTRIBUTING.md).",
               "",
-              "- Questions & tips → **[Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions)**",
-              "- Bugs & security → email the address at [foldnotes.io](https://foldnotes.io)",
+              "- Questions, tips & bugs → **[Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions)**",
+              "- Security → report privately via the repo's Security tab (Report a vulnerability)",
               "",
               "You're welcome to fork and modify under the MIT licence for your own use.",
             ].join("\n");

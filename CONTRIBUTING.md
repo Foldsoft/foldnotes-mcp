@@ -15,8 +15,10 @@ You are welcome to fork and modify the code for your own use under the terms of 
 
 ## Where to go
 
-- **Questions, setup help, tips, ideas** → [**Discussions**](https://github.com/Foldsoft/foldnotes-mcp/discussions).
+- **Questions, setup help, bugs, tips, ideas** → [**Discussions**](https://github.com/Foldsoft/foldnotes-mcp/discussions).
   Community Q&A — please search first; other users may answer, and there's no guaranteed response time.
-- **Bugs & security reports** → email the address published at [foldnotes.io](https://foldnotes.io),
-  so we can track and respond privately. Include your FoldNotes version, the `fn version` output,
-  and steps to reproduce.
+  Include your FoldNotes version, the `fn version` output, and steps to reproduce.
+- **Direct support** → [support@foldnotes.io](mailto:support@foldnotes.io).
+- **Security vulnerabilities** → report **privately** via GitHub's
+  [Report a vulnerability](https://github.com/Foldsoft/foldnotes-mcp/security/advisories/new) button
+  (the repo's **Security** tab) — not in a public thread.

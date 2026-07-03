@@ -9,9 +9,9 @@ everything the CLI can do, an AI assistant can do — under the same licensing a
 Made by **Foldsoft Pty Ltd** · [foldnotes.io](https://foldnotes.io)
 
 > **Source-available, install-only.** This repository is published so you can install and run the
-> server — we don't accept code contributions. Questions and tips are welcome in
-> [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions); for bugs or security, email
-> us (see [CONTRIBUTING](CONTRIBUTING.md)).
+> server — we don't accept code contributions. Questions, tips, and bug reports are welcome in
+> [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions); see
+> [CONTRIBUTING](CONTRIBUTING.md) for direct support and security reporting.
 
 ## Requirements
 
@@ -83,8 +83,9 @@ Two safety rules are built in:
 
 ## Questions & support
 
-- **Setup help, usage questions, tips** → [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions).
-- **Bugs & security** → email the address published at [foldnotes.io](https://foldnotes.io). We don't use
+- **Setup help, usage questions, bugs, tips** → [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions).
+- **Direct support** → [support@foldnotes.io](mailto:support@foldnotes.io).
+- **Security** → report privately via the repo's **Security → Report a vulnerability**. We don't use
   Issues or accept pull requests — see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Licence
