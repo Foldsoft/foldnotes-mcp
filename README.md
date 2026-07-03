@@ -8,8 +8,10 @@ everything the CLI can do, an AI assistant can do — under the same licensing a
 
 Made by **Foldsoft Pty Ltd** · [foldnotes.io](https://foldnotes.io)
 
-> **Source-available, install-only.** This repository is published so you can install and run
-> the server. We don't run it as a community project — see [CONTRIBUTING](CONTRIBUTING.md).
+> **Source-available, install-only.** This repository is published so you can install and run the
+> server — we don't accept code contributions. Questions and tips are welcome in
+> [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions); for bugs or security, email
+> us (see [CONTRIBUTING](CONTRIBUTING.md)).
 
 ## Requirements
 
@@ -78,6 +80,12 @@ Two safety rules are built in:
   require a valid FoldNotes licence or active trial, otherwise they change nothing.
 - **Trash is human-owned.** The server can move a note to the trash and restore it, but cannot
   empty the trash or permanently delete — that stays a deliberate, human-only action in the app.
+
+## Questions & support
+
+- **Setup help, usage questions, tips** → [Discussions](https://github.com/Foldsoft/foldnotes-mcp/discussions).
+- **Bugs & security** → email the address published at [foldnotes.io](https://foldnotes.io). We don't use
+  Issues or accept pull requests — see [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Licence
 

@@ -8,12 +8,15 @@ maintained solely by Foldsoft Pty Ltd:
 
 - **Pull requests are not accepted.** Any opened will be closed unmerged — please don't invest
   time in one.
-- **Issues are disabled** on this repository.
+- **Issues are disabled** — use the channels below instead.
 
 You are welcome to fork and modify the code for your own use under the terms of the
 [MIT Licence](LICENSE).
 
-## Found a bug, or have a request?
+## Where to go
 
-Contact us via [foldnotes.io](https://foldnotes.io) (or the support address published there).
-Include your FoldNotes version, the `fn version` output, and steps to reproduce.
+- **Questions, setup help, tips, ideas** → [**Discussions**](https://github.com/Foldsoft/foldnotes-mcp/discussions).
+  Community Q&A — please search first; other users may answer, and there's no guaranteed response time.
+- **Bugs & security reports** → email the address published at [foldnotes.io](https://foldnotes.io),
+  so we can track and respond privately. Include your FoldNotes version, the `fn version` output,
+  and steps to reproduce.
