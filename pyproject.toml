@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "foldnotes-mcp"
+dynamic = ["version"]
+description = "MCP server exposing the FoldNotes CLI (fn) as tools for Claude Desktop, Claude Code, and other MCP clients."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Foldsoft Pty Ltd", email = "support@foldnotes.io" }]
+keywords = ["mcp", "model-context-protocol", "foldnotes", "claude", "notes", "cli"]
+dependencies = ["mcp>=1.2.0"]
+
+[project.urls]
+Homepage = "https://foldnotes.io"
+Documentation = "https://foldnotes.io/advanced/ai-integration/"
+Repository = "https://github.com/Foldsoft/foldnotes-mcp"
+Discussions = "https://github.com/Foldsoft/foldnotes-mcp/discussions"
+
+[project.scripts]
+foldnotes-mcp = "foldnotes_mcp:main"
+
+# Single-module package: the module lives in python-sdk/, mapped to the
+# top-level import name `foldnotes_mcp` via `sources`.
+[tool.hatch.version]
+path = "python-sdk/foldnotes_mcp.py"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["python-sdk/foldnotes_mcp.py"]
+sources = ["python-sdk"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "python-sdk/foldnotes_mcp.py",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]

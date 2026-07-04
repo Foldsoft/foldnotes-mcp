@@ -1107,5 +1107,14 @@ def unarchive_note(note: str | None = None, id: str | None = None, collection: s
     return json.dumps(run_fn(args, collection), indent=2)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Console-script entry point for ``foldnotes-mcp`` / ``uvx foldnotes-mcp``.
+
+    Starts the MCP server on stdio — the transport Claude Desktop and Claude
+    Code use. Equivalent to running ``python3 foldnotes_mcp.py`` directly.
+    """
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()
