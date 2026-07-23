@@ -457,6 +457,8 @@ def list_tasks(
     note: str | None = None,
     project: str | None = None,
     context: str | None = None,
+    no_project: bool = False,
+    no_context: bool = False,
     all: bool = False,
     collection: str | None = None,
 ) -> str:
@@ -471,6 +473,8 @@ def list_tasks(
         note: Filter by note title.
         project: Filter by project name.
         context: Filter by context (tasks carrying this context).
+        no_project: Only tasks with no project assigned (inline or inherited).
+        no_context: Only tasks with no context assigned.
         all: Include done and cancelled tasks.
         collection: Collection name, UUID, or path.
     """
@@ -491,6 +495,10 @@ def list_tasks(
         args += ["--project", project]
     if context:
         args += ["--context", context]
+    if no_project:
+        args.append("--no-project")
+    if no_context:
+        args.append("--no-context")
     if all:
         args.append("--all")
     return json.dumps(run_fn(args, collection), indent=2)
