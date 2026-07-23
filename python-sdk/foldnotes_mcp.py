@@ -26,7 +26,7 @@ Configure in Claude Desktop's claude_desktop_config.json:
     }
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 import json
 import os
@@ -456,6 +456,7 @@ def list_tasks(
     priority: str | None = None,
     note: str | None = None,
     project: str | None = None,
+    context: str | None = None,
     all: bool = False,
     collection: str | None = None,
 ) -> str:
@@ -469,6 +470,7 @@ def list_tasks(
         priority: Filter by priority: high, medium, low.
         note: Filter by note title.
         project: Filter by project name.
+        context: Filter by context (tasks carrying this context).
         all: Include done and cancelled tasks.
         collection: Collection name, UUID, or path.
     """
@@ -487,6 +489,8 @@ def list_tasks(
         args += ["--note", note]
     if project:
         args += ["--project", project]
+    if context:
+        args += ["--context", context]
     if all:
         args.append("--all")
     return json.dumps(run_fn(args, collection), indent=2)
@@ -501,6 +505,7 @@ def add_task(
     due: str | None = None,
     priority: str | None = None,
     project: str | None = None,
+    context: str | None = None,
     collection: str | None = None,
 ) -> str:
     """Add a new task to a note.
@@ -511,6 +516,7 @@ def add_task(
         due: Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next monday', etc.).
         priority: Priority level: high, medium, low.
         project: Project name for the task.
+        context: Context(s) for the task; comma-separate for several (e.g. "errand,phone").
         collection: Collection name, UUID, or path.
     """
     args = ["tasks", "add", text, "--note", note]
@@ -520,6 +526,8 @@ def add_task(
         args += ["--priority", priority]
     if project:
         args += ["--project", project]
+    if context:
+        args += ["--context", context]
     return json.dumps(run_fn(args, collection), indent=2)
 
 
@@ -644,9 +652,11 @@ def set_task(
     clear_priority: bool = False,
     project: str | None = None,
     clear_project: bool = False,
+    context: str | None = None,
+    clear_context: bool = False,
     collection: str | None = None,
 ) -> str:
-    """Amend an existing task's due date, priority, or project.
+    """Amend an existing task's due date, priority, project, or context.
 
     Identify the task by `task_id` (exact, preferred) or `text` (substring),
     then pass at least one field to change. Amending metadata preserves the
@@ -663,6 +673,8 @@ def set_task(
         clear_priority: Remove the priority.
         project: New project name.
         clear_project: Remove the project.
+        context: New context(s), replacing any existing; comma-separate for several.
+        clear_context: Remove all contexts.
         collection: Collection name, UUID, or path.
     """
     sel = _task_selector(text, task_id)
@@ -681,6 +693,10 @@ def set_task(
         args += ["--project", project]
     if clear_project:
         args += ["--clear-project"]
+    if context:
+        args += ["--context", context]
+    if clear_context:
+        args += ["--clear-context"]
     return json.dumps(run_fn(args, collection), indent=2)
 
 
@@ -723,6 +739,16 @@ def list_projects(collection: str | None = None) -> str:
         collection: Collection name, UUID, or path.
     """
     return json.dumps(run_fn(["tasks", "projects"], collection), indent=2)
+
+
+@mcp.tool()
+def list_contexts(collection: str | None = None) -> str:
+    """List all task contexts with task counts (derived from task metadata).
+
+    Args:
+        collection: Collection name, UUID, or path.
+    """
+    return json.dumps(run_fn(["tasks", "contexts"], collection), indent=2)
 
 
 # ---- Backlinks ----
@@ -1037,6 +1063,39 @@ def strip_project(name: str, collection: str | None = None) -> str:
         collection: Collection name, UUID, or path.
     """
     return json.dumps(run_fn(["projects", "strip", name], collection), indent=2)
+
+
+@mcp.tool()
+def rename_context(
+    old_name: str,
+    new_name: str,
+    collection: str | None = None,
+) -> str:
+    """Rename a task context across the whole collection.
+
+    Renames the one entry within each task's context list, deduping if the new
+    name is already present, and leaves any other contexts on the line intact.
+
+    Args:
+        old_name: Existing context name.
+        new_name: New context name.
+        collection: Collection name, UUID, or path.
+    """
+    return json.dumps(run_fn(["contexts", "rename", old_name, new_name], collection), indent=2)
+
+
+@mcp.tool()
+def strip_context(name: str, collection: str | None = None) -> str:
+    """Remove a task context across the whole collection.
+
+    Removes the one entry from each task's context list, dropping the token
+    entirely only when it was the last context on the line.
+
+    Args:
+        name: Context name to strip.
+        collection: Collection name, UUID, or path.
+    """
+    return json.dumps(run_fn(["contexts", "strip", name], collection), indent=2)
 
 
 @mcp.tool()
