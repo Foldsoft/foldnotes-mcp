@@ -826,6 +826,47 @@ def daily_append(
     return json.dumps(run_fn(args, collection), indent=2)
 
 
+@mcp.tool()
+def daily_overdue(
+    date: str | None = None,
+    collection: str | None = None,
+) -> str:
+    """Insert or refresh the overdue / due-today task block in a daily note.
+
+    Rewrites the block in place if it is already present, so repeated calls
+    are safe. Creates the daily note if it doesn't exist.
+
+    Args:
+        date: Date for the daily note (default: today).
+        collection: Collection name, UUID, or path.
+    """
+    args = ["daily", "overdue"]
+    if date:
+        args += [date]
+    return json.dumps(run_fn(args, collection), indent=2)
+
+
+@mcp.tool()
+def daily_summary(
+    date: str | None = None,
+    collection: str | None = None,
+) -> str:
+    """Insert or refresh the activity summary block in a daily note.
+
+    Summarises the notes touched on that day. Rewrites the block in place if
+    it is already present, so repeated calls are safe. Creates the daily note
+    if it doesn't exist.
+
+    Args:
+        date: Date for the daily note (default: today).
+        collection: Collection name, UUID, or path.
+    """
+    args = ["daily", "summary"]
+    if date:
+        args += [date]
+    return json.dumps(run_fn(args, collection), indent=2)
+
+
 # ---- Collections ----
 
 @mcp.tool()

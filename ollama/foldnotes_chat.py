@@ -406,6 +406,32 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "daily_overdue",
+            "description": "Insert or refresh the overdue / due-today task block in a daily note. Safe to call repeatedly — the block is rewritten in place.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Date (default: today)."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "daily_summary",
+            "description": "Insert or refresh the activity summary block in a daily note. Safe to call repeatedly — the block is rewritten in place.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {"type": "string", "description": "Date (default: today)."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "delete_note",
             "description": "Soft-delete a note (moves to .trash/, recoverable with restore_note). Permanent deletion / emptying the trash is intentionally not available here — that is left to the user in the app.",
             "parameters": {
@@ -719,6 +745,18 @@ def execute_tool(name: str, args: dict) -> str:
         cmd = ["daily", "append", args["text"]]
         if args.get("date"):
             cmd += ["--date", args["date"]]
+        return json.dumps(run_fn(cmd, collection), indent=2)
+
+    elif name == "daily_overdue":
+        cmd = ["daily", "overdue"]
+        if args.get("date"):
+            cmd.append(args["date"])
+        return json.dumps(run_fn(cmd, collection), indent=2)
+
+    elif name == "daily_summary":
+        cmd = ["daily", "summary"]
+        if args.get("date"):
+            cmd.append(args["date"])
         return json.dumps(run_fn(cmd, collection), indent=2)
 
     elif name == "delete_note":
