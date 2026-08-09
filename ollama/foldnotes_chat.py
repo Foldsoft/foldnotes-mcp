@@ -70,6 +70,15 @@ def _find_fn() -> str:
 
 FN_BIN = _find_fn()
 
+# Seconds before an `fn` invocation is abandoned. 60, not 30: the FIRST call
+# in a session is far slower than the rest — the cold run resolves the iCloud
+# container, opens the SwiftData cache and may create that day's daily note.
+# Measured 2026-08-09: first call >30 s (timed out), second 12.6 s, then
+# 0.06 s warm. 30 s failed only ever on that first call, and the retry always
+# worked — which is a confusing way for a tool to behave.
+FN_TIMEOUT = 60
+
+
 
 def run_fn(args: list, collection: Optional[str] = None) -> dict:
     """Run an fn CLI command and return parsed JSON or error dict."""
@@ -79,11 +88,11 @@ def run_fn(args: list, collection: Optional[str] = None) -> dict:
     cmd += args + ["--json"]
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=FN_TIMEOUT)
     except FileNotFoundError:
         return {"error": f"fn CLI not found at {FN_BIN}. Install via FoldNotes > Install Command Line Tool."}
     except subprocess.TimeoutExpired:
-        return {"error": "Command timed out after 30 seconds."}
+        return {"error": f"Command timed out after {FN_TIMEOUT} seconds."}
 
     output = result.stdout.strip()
     if result.returncode != 0:
