@@ -1158,7 +1158,10 @@ def strip_context(name: str, collection: str | None = None) -> str:
 
 @mcp.tool()
 def list_attachments(collection: str | None = None) -> str:
-    """List images with size and reference count.
+    """List attachments with size and reference count.
+
+    Covers every file in the collection's attachments folder — images, PDFs,
+    Office and iWork documents, and audio — not images alone.
 
     Args:
         collection: Collection name, UUID, or path.
@@ -1168,7 +1171,9 @@ def list_attachments(collection: str | None = None) -> str:
 
 @mcp.tool()
 def orphan_attachments(collection: str | None = None) -> str:
-    """List images that no note references.
+    """List attachments that no note references.
+
+    Covers documents and audio as well as images.
 
     Args:
         collection: Collection name, UUID, or path.
@@ -1178,10 +1183,14 @@ def orphan_attachments(collection: str | None = None) -> str:
 
 @mcp.tool()
 def prune_attachments(force: bool = False, collection: str | None = None) -> str:
-    """Delete orphaned images. Without force, only reports what would be deleted.
+    """Delete orphaned attachments. Without force, only reports what would be deleted.
+
+    DESTRUCTIVE with force=True, and it deletes DOCUMENTS AND AUDIO as well as
+    images — a PDF, spreadsheet or voice memo no note references is removed just
+    the same. Run the dry-run first and read what it lists.
 
     Args:
-        force: Actually delete the orphaned images (default: dry-run).
+        force: Actually delete the orphaned attachments (default: dry-run).
         collection: Collection name, UUID, or path.
     """
     args = ["attachments", "prune"]
