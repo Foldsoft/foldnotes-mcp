@@ -82,10 +82,11 @@ FN_TIMEOUT = 60
 
 def run_fn(args: list, collection: Optional[str] = None) -> dict:
     """Run an fn CLI command and return parsed JSON or error dict."""
-    cmd = [FN_BIN, "--quiet"]
+    # fn takes its global options AFTER the subcommand: `fn tags --json`, never
+    # `fn --json tags` (that fails with "Unknown option").
+    cmd = [FN_BIN] + args + ["--quiet", "--json"]
     if collection:
         cmd += ["--collection", collection]
-    cmd += args + ["--json"]
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=FN_TIMEOUT)
