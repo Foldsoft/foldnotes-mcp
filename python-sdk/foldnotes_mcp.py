@@ -126,6 +126,11 @@ def _task_selector(text: str | None, task_id: str | None) -> list[str] | None:
     return None
 
 
+def _note_args(note: str | None) -> list[str]:
+    """`--note` only when a note was named; `fn` then searches every note."""
+    return ["--note", note] if note else []
+
+
 # ---------------------------------------------------------------------------
 # MCP Server
 # ---------------------------------------------------------------------------
@@ -264,18 +269,25 @@ def create_note(
     content: str | None = None,
     tags: list[str] | None = None,
     properties: list[str] | None = None,
+    favourite: bool = False,
     collection: str | None = None,
 ) -> str:
     """Create a new note with optional content, tags, and properties.
+
+    The title is the note's name and is locked, so the note is never renamed
+    to follow its first heading.
 
     Args:
         title: Note title (becomes the filename).
         content: Note body content (markdown).
         tags: Tags to add (without #).
         properties: User properties as key=value strings.
+        favourite: Mark the new note as a favourite.
         collection: Collection name, UUID, or path.
     """
     args = ["create", title]
+    if favourite:
+        args.append("--favourite")
     if content:
         args += ["--content", content]
     for t in tags or []:
@@ -454,12 +466,42 @@ def list_tags(
     return json.dumps(run_fn(args, collection), indent=2)
 
 
+# ---- Tags: Rename ----
+
+@mcp.tool()
+def rename_tag(
+    old_tag: str,
+    new_tag: str,
+    merge: bool = False,
+    collection: str | None = None,
+) -> str:
+    """Rename a tag, or move it under another parent, in every note that uses it.
+
+    Child tags move with it (renaming `work` also renames `work/clients`), notes
+    in the Trash are updated too, and manual-sort order and the tag's icon are
+    kept. Renaming onto a tag that already exists merges the two, which is
+    refused unless `merge` is true.
+
+    Args:
+        old_tag: Existing tag path, e.g. "work/clients" (with or without #).
+        new_tag: New tag path, e.g. "clients".
+        merge: Allow merging into a tag that already exists.
+        collection: Collection name, UUID, or path.
+    """
+    args = ["tags", "rename", old_tag, new_tag]
+    if merge:
+        args.append("--merge")
+    return json.dumps(run_fn(args, collection), indent=2)
+
+
 # ---- Tasks: List ----
 
 @mcp.tool()
 def list_tasks(
     due_today: bool = False,
+    due_tomorrow: bool = False,
     due_this_week: bool = False,
+    days: int | None = None,
     overdue: bool = False,
     status: str | None = None,
     priority: str | None = None,
@@ -474,8 +516,11 @@ def list_tasks(
     """List tasks across all notes with filtering.
 
     Args:
-        due_today: Show only tasks due today.
-        due_this_week: Show tasks due this week.
+        due_today: Show tasks due today and not yet overdue (a task due today
+            becomes overdue at 5 PM). Several due filters combine as "any of".
+        due_tomorrow: Show tasks due tomorrow.
+        due_this_week: Show tasks due this week (today and the next six days).
+        days: Show tasks due in the next N days, counting today.
         overdue: Show only overdue tasks.
         status: Filter by status: not-started, in-progress, done, cancelled.
         priority: Filter by priority: high, medium, low.
@@ -490,8 +535,12 @@ def list_tasks(
     args = ["tasks"]
     if due_today:
         args.append("--due-today")
+    if due_tomorrow:
+        args.append("--due-tomorrow")
     if due_this_week:
         args.append("--due-this-week")
+    if days:
+        args += ["--days", str(days)]
     if overdue:
         args.append("--overdue")
     if status:
@@ -518,25 +567,26 @@ def list_tasks(
 @mcp.tool()
 def add_task(
     text: str,
-    note: str,
+    note: str | None = None,
     due: str | None = None,
     priority: str | None = None,
     project: str | None = None,
     context: str | None = None,
     collection: str | None = None,
 ) -> str:
-    """Add a new task to a note.
+    """Add a new task to a note, or to today's daily note.
 
     Args:
         text: Task description text.
-        note: Target note title to add the task to.
+        note: Target note title. Omit to add the task to the end of today's
+            daily note (created if needed) — the same rule as Siri's Add Task.
         due: Due date (YYYY-MM-DD, 'today', 'tomorrow', 'next monday', etc.).
         priority: Priority level: high, medium, low.
         project: Project name for the task.
         context: Context(s) for the task; comma-separate for several (e.g. "errand,phone").
         collection: Collection name, UUID, or path.
     """
-    args = ["tasks", "add", text, "--note", note]
+    args = ["tasks", "add", text] + _note_args(note)
     if due:
         args += ["--due", due]
     if priority:
@@ -552,7 +602,7 @@ def add_task(
 
 @mcp.tool()
 def complete_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     collection: str | None = None,
@@ -562,7 +612,9 @@ def complete_task(
     Identify the task by `task_id` (exact, preferred) or `text` (substring).
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred — it targets the
@@ -572,14 +624,14 @@ def complete_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    return json.dumps(run_fn(["tasks", "complete"] + sel + ["--note", note], collection), indent=2)
+    return json.dumps(run_fn(["tasks", "complete"] + sel + _note_args(note), collection), indent=2)
 
 
 # ---- Tasks: Cancel ----
 
 @mcp.tool()
 def cancel_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     collection: str | None = None,
@@ -589,7 +641,9 @@ def cancel_task(
     Identify the task by `task_id` (exact, preferred) or `text` (substring).
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred — it targets the
@@ -599,14 +653,14 @@ def cancel_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    return json.dumps(run_fn(["tasks", "cancel"] + sel + ["--note", note], collection), indent=2)
+    return json.dumps(run_fn(["tasks", "cancel"] + sel + _note_args(note), collection), indent=2)
 
 
 # ---- Tasks: Progress ----
 
 @mcp.tool()
 def start_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     collection: str | None = None,
@@ -616,7 +670,9 @@ def start_task(
     Identify the task by `task_id` (exact, preferred) or `text` (substring).
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred — it targets the
@@ -626,14 +682,14 @@ def start_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    return json.dumps(run_fn(["tasks", "progress"] + sel + ["--note", note], collection), indent=2)
+    return json.dumps(run_fn(["tasks", "progress"] + sel + _note_args(note), collection), indent=2)
 
 
 # ---- Tasks: Reset ----
 
 @mcp.tool()
 def reset_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     collection: str | None = None,
@@ -643,7 +699,9 @@ def reset_task(
     Identify the task by `task_id` (exact, preferred) or `text` (substring).
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred — it targets the
@@ -653,14 +711,14 @@ def reset_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    return json.dumps(run_fn(["tasks", "reset"] + sel + ["--note", note], collection), indent=2)
+    return json.dumps(run_fn(["tasks", "reset"] + sel + _note_args(note), collection), indent=2)
 
 
 # ---- Tasks: Set (amend due / priority / project) ----
 
 @mcp.tool()
 def set_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     due: str | None = None,
@@ -680,7 +738,9 @@ def set_task(
     task's stable UUID (identity is hashed over the prose, not the metadata).
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred.
@@ -697,7 +757,7 @@ def set_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    args = ["tasks", "set"] + sel + ["--note", note]
+    args = ["tasks", "set"] + sel + _note_args(note)
     if due:
         args += ["--due", due]
     if clear_due:
@@ -721,7 +781,7 @@ def set_task(
 
 @mcp.tool()
 def remove_task(
-    note: str,
+    note: str | None = None,
     text: str | None = None,
     task_id: str | None = None,
     collection: str | None = None,
@@ -734,7 +794,9 @@ def remove_task(
     `list_tasks` first when matching by text. Surviving tasks keep their UUIDs.
 
     Args:
-        note: Note title containing the task.
+        note: Note title containing the task. Optional — without it the task is
+            found across all notes, and a text match in more than one note is
+            refused (the error lists the candidates; pass task_id).
         text: Task text to match (case-insensitive substring). Must match exactly
             one task; if several match, the command is refused — pass task_id.
         task_id: Exact task UUID from `list_tasks`. Preferred.
@@ -743,7 +805,7 @@ def remove_task(
     sel = _task_selector(text, task_id)
     if sel is None:
         return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-    return json.dumps(run_fn(["tasks", "remove"] + sel + ["--note", note], collection), indent=2)
+    return json.dumps(run_fn(["tasks", "remove"] + sel + _note_args(note), collection), indent=2)
 
 
 # ---- Tasks: Projects ----

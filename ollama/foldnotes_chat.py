@@ -24,7 +24,7 @@ Commands:
     /tools          — list available tools
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 import argparse
 import json
@@ -113,6 +113,11 @@ def _task_selector(args: dict) -> Optional[list]:
     return None
 
 
+def _note_args(args: dict) -> list:
+    """`--note` only when a note was given; `fn` then searches every note."""
+    return ["--note", args["note"]] if args.get("note") else []
+
+
 # ---------------------------------------------------------------------------
 # Tool definitions (Ollama format)
 # ---------------------------------------------------------------------------
@@ -168,6 +173,7 @@ TOOLS = [
                     "title": {"type": "string", "description": "Note title (becomes the filename)."},
                     "content": {"type": "string", "description": "Note body content (markdown)."},
                     "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags to add (without #)."},
+                    "favourite": {"type": "boolean", "description": "Mark the new note as a favourite."},
                 },
                 "required": ["title"],
             },
@@ -216,13 +222,31 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "rename_tag",
+            "description": "Rename a tag, or move it under another parent, in every note that uses it. Child tags move too. Renaming onto an existing tag merges them and needs merge=true.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "old_tag": {"type": "string", "description": "Existing tag path, e.g. work/clients."},
+                    "new_tag": {"type": "string", "description": "New tag path, e.g. clients."},
+                    "merge": {"type": "boolean", "description": "Allow merging into a tag that already exists."},
+                },
+                "required": ["old_tag", "new_tag"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_tasks",
             "description": "List tasks across all notes. Filter by status, due date, priority, project.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "due_today": {"type": "boolean", "description": "Show only tasks due today."},
-                    "due_this_week": {"type": "boolean", "description": "Show tasks due this week."},
+                    "due_tomorrow": {"type": "boolean", "description": "Show tasks due tomorrow."},
+                    "due_this_week": {"type": "boolean", "description": "Show tasks due this week (today and the next six days)."},
+                    "days": {"type": "integer", "description": "Show tasks due in the next N days, counting today."},
                     "overdue": {"type": "boolean", "description": "Show only overdue tasks."},
                     "status": {"type": "string", "enum": ["not-started", "in-progress", "done", "cancelled"], "description": "Filter by status."},
                     "priority": {"type": "string", "enum": ["high", "medium", "low"], "description": "Filter by priority."},
@@ -237,17 +261,17 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "add_task",
-            "description": "Add a new task to a note.",
+            "description": "Add a new task to a note, or to today's daily note when no note is given.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "Task description."},
-                    "note": {"type": "string", "description": "Target note title."},
+                    "note": {"type": "string", "description": "Target note title. Omit for today's daily note."},
                     "due": {"type": "string", "description": "Due date (YYYY-MM-DD or natural language)."},
                     "priority": {"type": "string", "enum": ["high", "medium", "low"], "description": "Priority level."},
                     "project": {"type": "string", "description": "Project name."},
                 },
-                "required": ["text", "note"],
+                "required": ["text"],
             },
         },
     },
@@ -259,11 +283,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred — targets the precise task even when several share the same wording."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -275,11 +298,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred — targets the precise task even when several share the same wording."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -291,11 +313,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred — targets the precise task even when several share the same wording."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -307,11 +328,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred — targets the precise task even when several share the same wording."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -323,7 +343,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred."},
                     "due": {"type": "string", "description": "New due date (YYYY-MM-DD or natural language)."},
@@ -333,7 +353,6 @@ TOOLS = [
                     "project": {"type": "string", "description": "New project name."},
                     "clear_project": {"type": "boolean", "description": "Remove the project."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -345,11 +364,10 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "note": {"type": "string", "description": "Note containing the task."},
+                    "note": {"type": "string", "description": "Note containing the task. Optional — without it the task is found across all notes; a text match in several notes is refused (use task_id)."},
                     "text": {"type": "string", "description": "Task text (case-insensitive substring). Must match exactly one task, else the command is refused — use task_id to disambiguate."},
                     "task_id": {"type": "string", "description": "Exact task UUID from list_tasks. Preferred."},
                 },
-                "required": ["note"],
             },
         },
     },
@@ -625,6 +643,8 @@ def execute_tool(name: str, args: dict) -> str:
             cmd += ["--content", args["content"]]
         for t in args.get("tags", []):
             cmd += ["--tag", t]
+        if args.get("favourite"):
+            cmd.append("--favourite")
         return json.dumps(run_fn(cmd, collection), indent=2)
 
     elif name == "edit_note":
@@ -663,8 +683,12 @@ def execute_tool(name: str, args: dict) -> str:
         cmd = ["tasks"]
         if args.get("due_today"):
             cmd.append("--due-today")
+        if args.get("due_tomorrow"):
+            cmd.append("--due-tomorrow")
         if args.get("due_this_week"):
             cmd.append("--due-this-week")
+        if args.get("days"):
+            cmd += ["--days", str(args["days"])]
         if args.get("overdue"):
             cmd.append("--overdue")
         if args.get("status"):
@@ -680,7 +704,7 @@ def execute_tool(name: str, args: dict) -> str:
         return json.dumps(run_fn(cmd, collection), indent=2)
 
     elif name == "add_task":
-        cmd = ["tasks", "add", args["text"], "--note", args["note"]]
+        cmd = ["tasks", "add", args["text"]] + _note_args(args)
         if args.get("due"):
             cmd += ["--due", args["due"]]
         if args.get("priority"):
@@ -699,13 +723,13 @@ def execute_tool(name: str, args: dict) -> str:
         sel = _task_selector(args)
         if sel is None:
             return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-        return json.dumps(run_fn(["tasks", sub] + sel + ["--note", args["note"]], collection), indent=2)
+        return json.dumps(run_fn(["tasks", sub] + sel + _note_args(args), collection), indent=2)
 
     elif name == "set_task":
         sel = _task_selector(args)
         if sel is None:
             return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-        cmd = ["tasks", "set"] + sel + ["--note", args["note"]]
+        cmd = ["tasks", "set"] + sel + _note_args(args)
         if args.get("due"):
             cmd += ["--due", args["due"]]
         if args.get("clear_due"):
@@ -724,7 +748,7 @@ def execute_tool(name: str, args: dict) -> str:
         sel = _task_selector(args)
         if sel is None:
             return json.dumps({"error": "Provide either text or task_id."}, indent=2)
-        return json.dumps(run_fn(["tasks", "remove"] + sel + ["--note", args["note"]], collection), indent=2)
+        return json.dumps(run_fn(["tasks", "remove"] + sel + _note_args(args), collection), indent=2)
 
     elif name == "list_tags":
         cmd = ["tags"]
@@ -732,6 +756,12 @@ def execute_tool(name: str, args: dict) -> str:
             cmd.append(args["tag"])
         if args.get("prefix"):
             cmd += ["--prefix", args["prefix"]]
+        return json.dumps(run_fn(cmd, collection), indent=2)
+
+    elif name == "rename_tag":
+        cmd = ["tags", "rename", args["old_tag"], args["new_tag"]]
+        if args.get("merge"):
+            cmd.append("--merge")
         return json.dumps(run_fn(cmd, collection), indent=2)
 
     elif name == "backlinks":
