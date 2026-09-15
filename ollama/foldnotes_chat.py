@@ -24,7 +24,7 @@ Commands:
     /tools          — list available tools
 """
 
-__version__ = "2.3.0"
+__version__ = "2.3.1"
 
 import argparse
 import json

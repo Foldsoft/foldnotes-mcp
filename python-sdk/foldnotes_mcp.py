@@ -26,7 +26,7 @@ Configure in Claude Desktop's claude_desktop_config.json:
     }
 """
 
-__version__ = "2.4.1"
+__version__ = "2.5.0"
 
 import json
 import os
