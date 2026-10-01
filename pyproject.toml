@@ -12,7 +12,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Foldsoft Pty Ltd", email = "support@foldnotes.io" }]
 keywords = ["mcp", "model-context-protocol", "foldnotes", "claude", "notes", "cli"]
-dependencies = ["mcp>=1.2.0"]
+dependencies = ["mcp>=1.2.0,<2"]  # mcp 2.x removed mcp.server.fastmcp (FastMCP → MCPServer)
 
 [project.urls]
 Homepage = "https://foldnotes.io"
