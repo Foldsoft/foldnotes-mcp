@@ -10,11 +10,10 @@ Requires:
     - Python 3.9+
     - Ollama running locally (https://ollama.com)
     - `fn` CLI installed (via FoldNotes app or manual symlink)
-    - requests library: pip install requests
 
 Usage:
-    python3 foldnotes_chat.py                    # defaults to qwen2.5:7b
-    python3 foldnotes_chat.py --model llama3.1:8b
+    python3 foldnotes_chat.py                    # defaults to qwen3:8b
+    python3 foldnotes_chat.py --model gpt-oss:20b
     python3 foldnotes_chat.py --url http://192.168.1.100:11434  # remote Ollama
 
 Commands:
@@ -24,20 +23,24 @@ Commands:
     /tools          — list available tools
 """
 
-__version__ = "2.3.1"
+__version__ = "2.4.0"
 
 import argparse
+import datetime
 import json
 import os
+import socket
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from typing import Any, Optional
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-DEFAULT_MODEL = "qwen2.5:7b"
+DEFAULT_MODEL = "qwen3:8b"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
 SYSTEM_PROMPT = """You are a helpful assistant with access to the user's FoldNotes knowledge base. You can read, search, create, and modify their notes using the available tools.
@@ -50,6 +53,16 @@ Guidelines:
 - If a tool returns an error, explain it to the user and suggest alternatives.
 - You can chain multiple tool calls — e.g. search for a topic, then show the full note.
 - When creating or editing notes, confirm with the user before making changes unless they explicitly asked you to."""
+
+
+def system_prompt() -> str:
+    """The system prompt with today's date.
+
+    A model doesn't know the date. Asked for overdue tasks, gpt-oss:20b guessed
+    one and then dropped most of the correct list the tool had returned.
+    """
+    today = datetime.date.today()
+    return f"{SYSTEM_PROMPT}\n\nToday is {today.strftime('%A')} {today.isoformat()}."
 
 # ---------------------------------------------------------------------------
 # fn CLI wrapper
@@ -850,43 +863,77 @@ def execute_tool(name: str, args: dict) -> str:
 # Ollama API client
 # ---------------------------------------------------------------------------
 
+# Models that refused `think: false` this session; they are asked without it.
+_MODELS_WITHOUT_THINK: set = set()
+
+
 def ollama_chat(
     url: str,
     model: str,
     messages: list,
     tools: list,
 ) -> dict:
-    """Send a chat request to Ollama and return the response."""
-    try:
-        import requests
-    except ImportError:
-        print("\nError: 'requests' library required. Install with: pip install requests")
-        sys.exit(1)
+    """Send a chat request to Ollama and return the response.
 
+    Uses only the standard library, so the client needs nothing installed: a
+    `pip install requests` is refused by Homebrew's Python
+    ("externally-managed-environment").
+    """
     payload = {
         "model": model,
         "messages": messages,
         "tools": tools,
         "stream": False,
     }
+    # Thinking off: on qwen3:8b it made answers about 3.5 times slower and no
+    # more accurate. gpt-oss can't stop reasoning and ignores this. A model that
+    # refuses the field gets the request again without it.
+    if model not in _MODELS_WITHOUT_THINK:
+        payload["think"] = False
 
+    endpoint = f"{url}/api/chat"
+    timed_out = ("\nError: Ollama request timed out (300s). The model may still be loading"
+                 " — try again, or use a smaller model.")
     try:
-        resp = requests.post(f"{url}/api/chat", json=payload, timeout=300)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.ConnectionError:
-        print(f"\nError: Cannot connect to Ollama at {url}")
-        print("Make sure Ollama is running: ollama serve")
+        status, text = _post_json(endpoint, payload, timeout=300)
+        if status == 400 and "think" in payload and "think" in text.lower():
+            _MODELS_WITHOUT_THINK.add(model)
+            del payload["think"]
+            status, text = _post_json(endpoint, payload, timeout=300)
+    except (TimeoutError, socket.timeout):
+        print(timed_out)
         sys.exit(1)
-    except requests.Timeout:
-        print("\nError: Ollama request timed out (300s). The model may still be loading — try again, or use a smaller model.")
-        sys.exit(1)
-    except requests.HTTPError as e:
-        if e.response.status_code == 404:
-            print(f"\nError: Model '{model}' not found. Pull it first: ollama pull {model}")
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, (TimeoutError, socket.timeout)):
+            print(timed_out)
         else:
-            print(f"\nError: Ollama returned {e.response.status_code}: {e.response.text}")
+            print(f"\nError: Cannot connect to Ollama at {url}")
+            print("Make sure Ollama is running: ollama serve")
         sys.exit(1)
+
+    if status == 404:
+        print(f"\nError: Model '{model}' not found. Pull it first: ollama pull {model}")
+        sys.exit(1)
+    if status != 200:
+        print(f"\nError: Ollama returned {status}: {text}")
+        sys.exit(1)
+    return json.loads(text)
+
+
+def _post_json(url: str, payload: dict, timeout: int) -> tuple:
+    """POST `payload` as JSON. Returns (HTTP status, body text); an HTTP error
+    status is returned, not raised. Raises URLError when Ollama can't be reached."""
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------------------
@@ -901,7 +948,7 @@ def print_tool_call(name: str, args: dict) -> None:
 
 def chat_loop(url: str, model: str) -> None:
     """Main interactive chat loop."""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = [{"role": "system", "content": system_prompt()}]
 
     print(f"FoldNotes Chat v{__version__} — model: {model}")
     print(f"Ollama: {url}")
@@ -926,7 +973,7 @@ def chat_loop(url: str, model: str) -> None:
                 print("Bye!")
                 break
             elif cmd == "/clear":
-                messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+                messages = [{"role": "system", "content": system_prompt()}]
                 print("Conversation cleared.\n")
                 continue
             elif cmd == "/model":
