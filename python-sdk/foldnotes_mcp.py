@@ -511,6 +511,7 @@ def list_tasks(
     no_project: bool = False,
     no_context: bool = False,
     all: bool = False,
+    created: str | None = None,
     collection: str | None = None,
 ) -> str:
     """List tasks across all notes with filtering.
@@ -530,6 +531,11 @@ def list_tasks(
         no_project: Only tasks with no project assigned (inline or inherited).
         no_context: Only tasks with no context assigned.
         all: Include done and cancelled tasks.
+        created: Show tasks created on a day: today, yesterday, or a date
+            (2026-11-14, last friday). A task with no created date of its own
+            counts as made on its note's day. Needs an fn with Tasks 2.0; each
+            task's day is in its `created` field, with `createdFromNote: true`
+            when it is the note's day.
         collection: Collection name, UUID, or path.
     """
     args = ["tasks"]
@@ -559,6 +565,8 @@ def list_tasks(
         args.append("--no-context")
     if all:
         args.append("--all")
+    if created:
+        args += ["--created", created]
     return json.dumps(run_fn(args, collection), indent=2)
 
 
