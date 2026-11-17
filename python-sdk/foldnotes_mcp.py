@@ -816,6 +816,52 @@ def remove_task(
     return json.dumps(run_fn(["tasks", "remove"] + sel + _note_args(note), collection), indent=2)
 
 
+# ---- Tasks: Move ----
+
+@mcp.tool()
+def move_task(
+    to: str,
+    note: str | None = None,
+    text: str | None = None,
+    task_id: str | None = None,
+    heading: str | None = None,
+    collection: str | None = None,
+) -> str:
+    """Move a task to another note, keeping it the same task.
+
+    The task's line moves with its id, its created date, its comments (the `> `
+    lines under it) and the lines indented under it, to the end of the `to`
+    note, or to the end of one of its headings' sections. Nothing of it is left
+    in the note it came from. Needs an fn with Move to Note (FoldNotes' Tasks
+    2.0). Identify the task by `task_id` (exact, preferred) or `text`
+    (substring).
+
+    Args:
+        to: The note to move the task to: its title, filename or UUID. A daily
+            note can be named (its title is its date, e.g. 20261117), so a task
+            moved by mistake can be put back on its day.
+        note: Note title containing the task now. Optional — without it the
+            task is found across all notes, and a text match in more than one
+            note is refused (the error lists the candidates; pass task_id).
+        text: Task text to match (case-insensitive substring). Must match
+            exactly one task; if several match, the command is refused — pass
+            task_id.
+        task_id: Exact task UUID from `list_tasks`. Preferred.
+        heading: A heading in the `to` note, by its words (any level): the task
+            goes at the end of its section. Omit for the end of the note. A
+            heading the note doesn't have is refused, and the error lists the
+            note's headings.
+        collection: Collection name, UUID, or path.
+    """
+    sel = _task_selector(text, task_id)
+    if sel is None:
+        return json.dumps({"error": "Provide either text or task_id."}, indent=2)
+    args = ["tasks", "move"] + sel + _note_args(note) + ["--to", to]
+    if heading:
+        args += ["--heading", heading]
+    return json.dumps(run_fn(args, collection), indent=2)
+
+
 # ---- Tasks: Projects ----
 
 @mcp.tool()
